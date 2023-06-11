@@ -1,23 +1,37 @@
 package jp.jaxa.iss.kibo.rpc.sampleapk;
 
-import android.graphics.drawable.GradientDrawable;
+import android.graphics.Bitmap;
+import android.os.SystemClock;
 import android.util.Log;
 
-import jp.jaxa.iss.kibo.rpc.api.KiboRpcService;
+import org.opencv.core.Mat;
+import org.opencv.core.Rect;
+import org.opencv.core.Size;
+import org.opencv.imgproc.Imgproc;
 
 import java.util.List;
+
+import com.google.zxing.BinaryBitmap;
+import com.google.zxing.LuminanceSource;
+import com.google.zxing.RGBLuminanceSource;
+import com.google.zxing.common.HybridBinarizer;
+import com.google.zxing.qrcode.QRCodeReader;
+
 import gov.nasa.arc.astrobee.Result;
-import gov.nasa.arc.astrobee.android.gs.MessageType;
 import gov.nasa.arc.astrobee.types.Point;
 import gov.nasa.arc.astrobee.types.Quaternion;
+import jp.jaxa.iss.kibo.rpc.api.KiboRpcService;
 
-import org.opencv.core.Mat;
+import static org.opencv.android.Utils.matToBitmap;
 
 /**
  * Class meant to handle commands from the Ground Data System and execute them in Astrobee
  */
 
 public class YourService extends KiboRpcService {
+
+    int NAV_MAX_COL = 1280;
+    int NAV_MAX_ROW =  960;
     @Override
     protected void runPlan1(){
         // the mission starts
@@ -136,6 +150,154 @@ public class YourService extends KiboRpcService {
         }
         while (!result.hasSucceeded() && count < max_count);
         api.laserControl(true);
+    }
+
+    public double[] QR_event(Point point, Quaternion quaternion, int count_max, int no)
+    {
+        String contents = null;
+        int count = 0;
+        double final_x = 0, final_y = 0, final_z = 0, final_w = 0;
+
+        while (contents == null && count < count_max)
+        {
+            Log.d("QR[status]:", " start");
+            long start_time = SystemClock.elapsedRealtime();
+            //                                            //
+            MoveTo(point,quaternion);
+            Log.d("QR[NO]:"," "+no);
+
+            flash_control(true);
+            Mat src_mat = new Mat(undistord(api.getMatNavCam()), cropImage(40));
+            Bitmap bMap = resizeImage(src_mat, 2000, 1500);
+
+
+
+            //////////////////////////////////////////////////////////////////////////////////////////////////////
+            int[] intArray = new int[bMap.getWidth() * bMap.getHeight()];
+            bMap.getPixels(intArray, 0, bMap.getWidth(), 0, 0, bMap.getWidth(), bMap.getHeight());
+
+            LuminanceSource source = new RGBLuminanceSource(bMap.getWidth(), bMap.getHeight(), intArray);
+            BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
+
+            try
+            {
+                com.google.zxing.Result result = new QRCodeReader().decode(bitmap);
+                contents = result.getText();
+                Log.d("QR[status]:", " Detected");
+
+                String[] multi_contents = contents.split(", ");
+                final_x = Double.parseDouble(multi_contents[1]);
+                final_y = Double.parseDouble(multi_contents[3]);
+                final_z = Double.parseDouble(multi_contents[5]);
+                if(no == 1) final_w = Math.sqrt(1 - final_x*final_x - final_y*final_y - final_z*final_z);
+            }
+            catch (Exception e)
+            {
+                Log.d("QR[status]:", " Not detected");
+            }
+            //////////////////////////////////////////////////////////////////////////////////////////////////////
+            Log.d("QR[status]:", " stop");
+            long stop_time = SystemClock.elapsedRealtime();
+
+
+
+            Log.d("QR[count]:", " " + count);
+            Log.d("QR[total_time]:"," "+ (stop_time-start_time)/1000);
+            count++;
+        }
+
+
+        flash_control(false);
+        // api.judgeSendDiscoveredQR(no, contents);
+        return new double[] {final_x, final_y, final_z, final_w};
+
+    }
+
+    public Mat undistord(Mat src)
+    {
+        Mat dst = new Mat(1280, 960, CvType.CV_8UC1);
+        Mat cameraMatrix = new Mat(3, 3, CvType.CV_32FC1);
+        Mat distCoeffs = new Mat(1, 5, CvType.CV_32FC1);
+
+        int row = 0, col = 0;
+
+        double cameraMatrix_sim[] =
+                {
+                        344.173397, 0.000000, 630.793795,
+                        0.000000, 344.277922, 487.033834,
+                        0.000000, 0.000000, 1.000000
+                };
+        double distCoeffs_sim[] = {-0.152963, 0.017530, -0.001107, -0.000210, 0.000000};
+
+        double cameraMatrix_orbit[] =
+                {
+                        692.827528, 0.000000, 571.399891,
+                        0.000000, 691.919547, 504.956891,
+                        0.000000, 0.000000, 1.000000
+                };
+        double distCoeffs_orbit[] = {-0.312191, 0.073843, -0.000918, 0.001890, 0.000000};
+
+        if(MODE == "sim")
+        {
+            cameraMatrix.put(row, col, cameraMatrix_sim);
+            distCoeffs.put(row, col, distCoeffs_sim);
+            Log.d("Mode[camera]:"," sim");
+        }
+        else if(MODE == "iss")
+        {
+            cameraMatrix.put(row, col, cameraMatrix_orbit);
+            distCoeffs.put(row, col, distCoeffs_orbit);
+            Log.d("Mode[camera]:"," iss");
+        }
+
+        cameraMatrix.put(row, col, cameraMatrix_orbit);
+        distCoeffs.put(row, col, distCoeffs_orbit);
+
+        Imgproc.undistort(src, dst, cameraMatrix, distCoeffs);
+        return dst;
+    }
+
+    public Rect cropImage(int percent_crop)
+    {
+        double ratio = NAV_MAX_COL / NAV_MAX_ROW;
+
+        double percent_row = percent_crop/2;
+        double percent_col = percent_row * ratio;
+
+        int offset_row = (int) percent_row * NAV_MAX_ROW / 100;
+        int offset_col = (int) percent_col * NAV_MAX_COL / 100;
+        double rows = NAV_MAX_ROW - (offset_row * 2);
+        double cols = NAV_MAX_COL - (offset_col * 2);
+
+        return new Rect(offset_col, offset_row, (int) cols, (int) rows);
+    }
+
+    public Bitmap resizeImage(Mat src, int width, int height)
+    {
+        Size size = new Size(width, height);
+        Imgproc.resize(src, src, size);
+
+        Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+        matToBitmap(src, bitmap, false);
+        return bitmap;
+    }
+
+    public void flash_control(boolean status)
+    {
+        if(status)
+        {
+            api.flashlightControlFront(0.025f);
+
+            try
+            {
+                Thread.sleep(1000); // wait a few seconds
+            }
+            catch (InterruptedException e)
+            {
+                e.printStackTrace();
+            }
+        }
+        else api.flashlightControlFront(0);
     }
 }
 
