@@ -19,16 +19,17 @@ public class YourService extends KiboRpcService {
         // the mission starts
         api.startMission();
         int counter = 0;
-        Point[] point = new Point[7];
-        point[0] = new Point(11.2746, -9.92284, 5.2988);
-        point[1] = new Point(10.612 ,-9.0709, 4.48);
-        point[2] = new Point(10.71, -7.7, 4.48);
-        point[3] = new Point(10.51, -6.7185 ,5.1804);
-        point[4] = new Point(11.114 ,-7.9756, 5.3393);
-        point[5] = new Point(11.355 ,-8.9929 ,4.7818);
+        Point[] point = new Point[8];
+        point[0] = new Point(11.2077,-10.1,5.4735);//change x and z;//ok
+        point[1] = new Point(10.483384,-9.16,4.38);//ok
+        point[2] = new Point(10.715,-7.765,4.48);// -7.59897//ok
+        point[3] = new Point(10.46,-6.6145,5.2044);//change y and z;//ok
+        point[4] = new Point(11.064,-7.919,5.3393);//-8//ok
+        point[5] = new Point(11.355 ,-9.0449 ,4.9368);//4.8618//ok
         point[6] = new Point(11.369 ,-8.5518, 4.48);
+        point[7] = new Point(10.6,-8.38,5.2);
 
-        Quaternion[] quaternion = new Quaternion[7];
+        Quaternion[] quaternion = new Quaternion[8];
         quaternion[0] = new Quaternion(0f, 0f, -0.707f ,0.707f);
         quaternion[1] = new Quaternion(0.5f, 0.5f, -0.5f, 0.5f);
         quaternion[2] = new Quaternion(0f, 0.707f, 0f, 0.707f);
@@ -36,6 +37,7 @@ public class YourService extends KiboRpcService {
         quaternion[4] = new Quaternion(-0.5f, -0.5f, -0.5f, 0.5f);
         quaternion[5] = new Quaternion(0, 0 ,0, 1);
         quaternion[6] = new Quaternion(0f, 0.707f, 0f, 0.707f);
+        quaternion[7] = new Quaternion(0f, 0f, 0f, 1f);
 
         while (true){
             // get the list of active target id
