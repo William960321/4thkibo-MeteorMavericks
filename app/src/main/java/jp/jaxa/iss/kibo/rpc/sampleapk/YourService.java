@@ -40,8 +40,8 @@ public class YourService extends KiboRpcService {
         Point[] point = new Point[8];
         point[0] = new Point(11.2077,-10.1,5.4735);//change x and z;//ok
         point[1] = new Point(10.483384,-9.16,4.38);//ok
-        point[2] = new Point(10.6031, -7.56397, 4.38);// -7.59897
-        point[3] = new Point(10.4,-6.653972,5.07531);//change y and z;
+        point[2] = new Point(10.715,-7.765,4.48);// -7.59897//ok
+        point[3] = new Point(10.46,-6.6145,5.2044);//change y and z;//ok
         point[4] = new Point(11.064,-7.919,5.3393);//-8//ok
         point[5] = new Point(11.355 ,-9.0449 ,4.9368);//4.8618//ok
         point[6] = new Point(11.369 ,-8.5518, 4.48);
